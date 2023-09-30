@@ -6,10 +6,12 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 	"time"
 )
 
 type DiskStore struct {
+	sync.Mutex
 	file          *os.File
 	writePosition int
 	keyDir        KeyDir
@@ -76,6 +78,8 @@ func isFileExists(fileName string) bool {
 }
 
 func (d *DiskStore) write(data []byte) {
+	d.Lock()
+	defer d.Unlock()
 	if _, err := d.file.Write(data); err != nil {
 		panic(err)
 	}
@@ -86,6 +90,9 @@ func (d *DiskStore) write(data []byte) {
 }
 
 func (ds *DiskStore) Get(key string) string {
+	ds.Lock()
+	defer ds.Unlock()
+
 	entry, ok := ds.keyDir[key]
 	if !ok {
 		return ""
@@ -104,6 +111,9 @@ func (ds *DiskStore) Get(key string) string {
 }
 
 func (ds *DiskStore) Set(key, value string) {
+	ds.Lock()
+	defer ds.Unlock()
+
 	timestamp := uint32(time.Now().Unix())
 	size, data := encodeRecord(timestamp, key, value)
 	ds.write(data)
@@ -112,6 +122,9 @@ func (ds *DiskStore) Set(key, value string) {
 }
 
 func (ds *DiskStore) Close() bool {
+	ds.Lock()
+	defer ds.Unlock()
+
 	ds.file.Sync()
 	if err := ds.file.Close(); err != nil {
 		return false
